@@ -1,0 +1,1 @@
+/usr/bin/c++  -g   CMakeFiles/proje.dir/main.cpp.o CMakeFiles/proje.dir/server/FileManage.cpp.o CMakeFiles/proje.dir/client/ClientStructureManage.cpp.o CMakeFiles/proje.dir/server/ServerStructureManage.cpp.o CMakeFiles/proje.dir/client/ClientFS/asd/yeah.cpp.o CMakeFiles/proje.dir/client/ClientFS/file.cpp.o CMakeFiles/proje.dir/server/users.cpp.o  -o proje 
