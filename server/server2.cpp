@@ -63,7 +63,6 @@ static int callback(void* data, int argc, char** argv, char** azColName)
 }
 
 std::string iscrizione(tcp::socket& server_socket) {
-    std::lock_guard<std::mutex> lg(mutex_structure);
     //autenticazione iniziale
     users user;
     string response;
@@ -80,6 +79,8 @@ std::string iscrizione(tcp::socket& server_socket) {
     cout<<std::endl<<std::endl<<user.getUserPath();
 
     //apro il db
+    std::lock_guard<std::mutex> lg(mutex_structure);
+
     res = sqlite3_open("test.db", &DB);
     string sql("INSERT into users ('ID', 'PASS', 'PATH') values ('"+user.getUsername()+"','"+user.getPassword()+"','"+user.getUserPath()+"')");
 
@@ -107,7 +108,6 @@ std::string iscrizione(tcp::socket& server_socket) {
 
 
 std::string login(tcp::socket& server_socket) {
-    std::lock_guard<std::mutex> lg(mutex_structure);
     users user;
     string response;
     sendData(server_socket,"Username:");
@@ -121,6 +121,7 @@ std::string login(tcp::socket& server_socket) {
 
 
     //apro il db
+    std::lock_guard<std::mutex> lg(mutex_structure);
     res = sqlite3_open("test.db", &DB);
     string data("Ricerca nel database...\n");
     string sql("select * from users where ID = '"+user.getUsername()+"' and PASS = '"+user.getPassword()+"';  ");
@@ -231,6 +232,10 @@ int getData2(tcp::socket& socket,std::string user_path) {
     boost::property_tree::json_parser::read_json(ss, root);
     std::string type = root.get<std::string>("type");
     std::string mod = root.get<std::string>("how_to");
+    if(type=="logout") {
+        //DEVO SLOGGARE E TERMINARE LA CONNESSIONE
+        cout<<"Devo sloggare";
+    } else {
 
     if (type == "directory") { // nel json ho ricevuto info su una directory
         createDirectory(root.get<std::string>("path"),user_path);
@@ -252,7 +257,7 @@ int getData2(tcp::socket& socket,std::string user_path) {
 
         readFile(socket,user_path,path, size); }
     }
-}
+} }
 
 
 
@@ -336,8 +341,14 @@ void session(tcp::socket server_socket)
         }
 
         //send comando start_config
-            sendData(server_socket,"start_config");
+            sendData(server_socket,"start_config_req");
+            resp = getData(server_socket);
+            // Popping last character "\n"
+            resp.pop_back();
+            if(resp=="start_config_ok")
             sendData(server_socket,scelta);
+            else { //error
+                 }
 
             if (scelta=="1") sync_client_to_server(server_socket,dir); //classic
             if (scelta=="2") sync_server_to_client(server_socket,dir);
@@ -356,7 +367,9 @@ void sync_client_to_server(tcp::socket& server_socket,std::string dir) {
         std::lock_guard<std::mutex> lg(mutex_structure);
 
         //creo la struct per la sync
-        start_server_config(dir);
+            start_server_config(dir);
+
+
         //mando server struct
         sendFile(server_socket,"server-struct.json","utility/server-struct.json","start_config");
         // prendo client struct

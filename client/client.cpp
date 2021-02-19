@@ -17,12 +17,14 @@ using namespace boost::asio::ip;
 
 void sync_operation(boost::filesystem::path p);
 void sendFile(tcp::socket& socket,std::string filename,std::string path,std::string mod);
+void sendLogOut(tcp::socket& socket);
 void sendDir(tcp::socket& socket,std::string filename,std::string path,std::string mod);
 void fileW(tcp::socket& socket,std::string user_path);
 void sync_client_to_server(tcp::socket& client_socket,std::string user_path);
 void sync_server_to_client(tcp::socket& client_socket,std::string user_path);
 void sendFileForSyncro(tcp::socket& client_socket, std::string user_path);
 void receiveFileForSyncro(tcp::socket& client_socket, std::string user_path);
+void logout(tcp::socket& socket);
 
 
 void sendData(tcp::socket& socket, const string& message)
@@ -47,9 +49,7 @@ string getData(tcp::socket& socket)
 void getData2(tcp::socket& socket,std::string user_path) {
     std::array<char, 512> resp;
     memset(&resp,0,resp.size());
-    cout<<"SBEMMMMMMMMMMMMMM"<<std::endl;
     boost::asio::read(socket, buffer(resp,512));
-    cout<<"SBEMMMMdsdwdwMMMMMMMMMM"<<std::endl;
 
     std::string s(resp.data());
     std::stringstream ss(s);
@@ -68,7 +68,7 @@ void getData2(tcp::socket& socket,std::string user_path) {
         size_t size = (root.get<size_t>("size"));
         readFile(socket,user_path, path, size);
     }
-    else if(type=="server_needs_for_sync") {
+    /*else if(type=="server_needs_for_sync") {
         //devo mandare una serie di file al server
         std::vector<std::pair<std::string, std::string>> fileNames;
         // Iterator over all fileNames
@@ -88,7 +88,7 @@ void getData2(tcp::socket& socket,std::string user_path) {
             if (n.first == "file")
                 sendFile(socket, n.second, user_path + "/" + n.second, "new_file");
         }
-    }
+    }*/
 }
 
 
@@ -121,7 +121,10 @@ int main(int argc, char* argv[])
         response = getData(client_socket);
         response.pop_back();
         cout << "Server: " << response << endl;
-        if(response=="start_config") break;
+        if(response=="start_config_req")  {
+            sendData(client_socket,"start_config_ok");
+            break;
+        }
         //mando
         getline(cin, reply);
         sendData(client_socket, reply);
@@ -129,20 +132,27 @@ int main(int argc, char* argv[])
     }
 
     scelta_from_s = getData(client_socket);
+
     scelta_from_s.pop_back();
-    cout << "Scelta: " << scelta_from_s << endl;
 
         if(scelta_from_s=="1") //classic
         {
             sync_client_to_server(client_socket, user_path);
+            cout<<"#### ADESSO IL PROGRAMMA FUNZIONERA IN BACKGROUND, OGNI MODIFICA NELLA DIRECTORY VERRA' INOLTRATA AL SERVER ####\n";
+
         }
 
     if(scelta_from_s=="2") //devo fare backup , prendo quello che mi manda e salvo
     {
         sync_server_to_client(client_socket,user_path);
-
+        cout<<"#### ADESSO IL PROGRAMMA FUNZIONERA IN BACKGROUND, OGNI MODIFICA NELLA DIRECTORY VERRA' INOLTRATA AL SERVER ####\n";
     }
-    cout<<"Something changed!";
+
+    std::thread t_logout([&client_socket](){
+        logout(client_socket);
+    });
+
+    t_logout.detach();
     //lancio file watcher in background
     fileW(client_socket,user_path);
 
@@ -249,6 +259,7 @@ void sync_server_to_client(tcp::socket& client_socket,std::string user_path) {
         getData2(client_socket,user_path);
 
         receiveFileForSyncro(client_socket,user_path);
+        cout<<"Sincronizzazione terminata."<<std::endl;
 
 
 
@@ -267,12 +278,14 @@ void sync_client_to_server(tcp::socket& client_socket,std::string user_path) {
 
         //Mando i file al server
         sendFileForSyncro(client_socket,user_path);
+        cout<<"Sincronizzazione terminata."<<std::endl;
 
-    }
+
+}
 
     void receiveFileForSyncro(tcp::socket& client_socket, std::string user_path) {
         boost::property_tree::ptree root = confronto_sync_server_to_client(user_path);
-
+        cout<<"Devo ricevere ->"<<root.get_child("fileNames").size()<< "elementi"<<std::endl;
         for(int j=0;j<root.get_child("fileNames").size();j++) {
             getData2(client_socket,user_path);
         }
@@ -305,3 +318,23 @@ void sync_client_to_server(tcp::socket& client_socket,std::string user_path) {
     }
 
 
+void logout(tcp::socket& socket) {
+    std::string reply;
+    try {
+        std::cout << "User authenticated. Digit EXIT to exit" << std::endl;
+        do {
+                std::getline(std::cin, reply);
+                std::cout<<reply<<std::endl;
+                if (reply!= "EXIT") {
+                    std::cout << "Invalid command. Digit \"EXIT\" to exit" << std::endl;
+                    std::cin.clear();
+                }
+
+        }while (reply!="EXIT");
+        sendLogOut(socket);
+        cout<<"Devo sloggare";
+
+    }catch(std::exception &ex){
+        //
+    }
+}
