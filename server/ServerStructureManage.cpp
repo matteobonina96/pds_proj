@@ -82,65 +82,44 @@ boost::property_tree::ptree confronto_sync_client_to_server(std::string path) {
     std::unordered_map<std::string, json> entries_s;
     read_structure_client(entries);
     read_structure_server(entries_s);
-    cout<<std::endl<<entries<<std::endl;
-    cout<<std::endl<<entries_s<<std::endl;
+    //cout<<std::endl<<entries<<std::endl;
+    //cout<<std::endl<<entries_s<<std::endl;
 
     boost::property_tree::ptree root;
     boost::property_tree::ptree files;
     root.put("type","server_needs_for_sync");
 
-    cout<<std::endl<<"Confronto se quelli presenti nel client sono presenti nel server:"<<std::endl;
-    for( const auto& n : entries) {
-        //cout<<std::endl<<n.second["path"];
-        //cout<<std::endl<<n.second["hash"];
-        std::unordered_map<std::string,json>::const_iterator it = entries_s.find (n.first);
 
-        if ( it == entries.end() )
-            std::cout << n.first << " not found, devo mandare"<<std::endl;
-        else
-            std::cout << it->first << " trovato"<<std::endl;
-    }
-
-    cout<<std::endl<<"Confronto se quelli presenti nel client sono presenti nel server, con lo stesso hash:"<<std::endl;
+    //cout<<std::endl<<"Confronto se quelli presenti nel client sono presenti nel server, con lo stesso hash:"<<std::endl;
 
     for( const auto& n : entries) {
-        cout<<std::endl<<n.first <<"IS DIRECTORY?   -> "<<is_directory(n.first);
-
-        cout<<std::endl<<n.second["path"];
-        cout<<std::endl<<n.second["hash"];
-        cout<<std::endl<<n.second["type"];
 
         std::unordered_map<std::string,json>::const_iterator it = entries_s.find (n.first);
-        cout<<std::endl;
         if ( it == entries.end() ) {
-            std::cout << n.first << " non trovato nel server! DEVO MANDARLO PERCHE' NON C'È"<<std::endl;
+            std::cout << n.first << " non trovato nel server! DEVO RICEVERLO DAL CLIENT!"<<std::endl;
             boost::property_tree::ptree file;
             file.put("", n.first);
             files.push_back(std::make_pair(n.second["type"], file));
         }
         else {
-            std::cout << it->first << " trovato, "<<std::endl;
+            std::cout << it->first << " trovato, ";
             if(it->second["hash"] == n.second["hash"])
-                std::cout<<"Hanno pure lo stesso hash!!!"<<std::endl;
+                std::cout<<"hanno pure lo stesso hash!!!"<<std::endl;
             else {
-                std::cout<<"NON HANNO lo stesso hash!!!"<<std::endl;
-                if(difftime(it->second["timestamp_last_mod"],n.second["timestamp_last_mod"]) > 0 )
-                    //TODO
-                    std::cout<<"Nel server ho la versione piu recente!!!"<<std::endl;
-                else {
-                    std::cout << "Nel client ho la versione piu recente!!!" << std::endl;
+                std::cout<<"NON HANNO lo stesso hash!!! DEVO RICEVERLO AGGIORNATO DAL CLIENT"<<std::endl;
+
                     boost::property_tree::ptree file;
                     file.put("", n.first);
                     files.push_back(std::make_pair(n.second["type"], file));
                     //rimuovo questo, ricevo quello nuovo
                     boost::filesystem::remove_all(path+"/"+n.first);
 
-                }
+
             }
         }
     }
 
-    cout<<std::endl<<"Confronto se quelli presenti nel server sono presenti nel client, con lo stesso hash, per capire quali eliminare perche non piu presenti:"<<std::endl;
+    cout<<std::endl<<"Confronto se quelli presenti nel server sono ancora presenti nel client, con lo stesso hash, per capire quali eliminare perche non piu presenti:"<<std::endl;
 
     for( const auto& n : entries_s) {
         //cout<<std::endl<<n.second["path"];
@@ -148,25 +127,10 @@ boost::property_tree::ptree confronto_sync_client_to_server(std::string path) {
         std::unordered_map<std::string,json>::const_iterator it = entries.find (n.first);
         cout<<std::endl;
         if ( it == entries_s.end() ) {
-            std::cout << n.first << " non trovato nel client! DEVO ELIMINARLO PERCHE NON PIU NEL CLIENT" << std::endl;
+            std::cout << n.first << " DEVO ELIMINARLO PERCHE NON PIU NEL CLIENT" << std::endl;
             boost::filesystem::remove_all(path+"/"+n.first);
-        }
-        else {
-            std::cout << it->first << " trovato, "<<std::endl;
+        } }
 
-            if(it->second["hash"] == n.second["hash"])
-                std::cout<<"Hanno pure lo stesso hash!!!"<<std::endl;
-            else {
-                std::cout<<"NON HANNO lo stesso hash!!!"<<std::endl;
-                if(difftime(n.second["timestamp_last_mod"],it->second["timestamp_last_mod"]) > 0 )
-                    std::cout<<"Nel server ho la versione piu recente!!!"<<std::endl;
-                else
-                    std::cout<<"Nel client ho la versione piu recente!!!"<<std::endl;
-
-
-            }
-        }
-    }
     root.add_child("fileNames", files);
     return root;
 
@@ -179,84 +143,41 @@ boost::property_tree::ptree confronto_sync_server_to_client(std::string path) {
     std::unordered_map<std::string, json> entries_s;
     read_structure_client(entries);
     read_structure_server(entries_s);
-    cout<<std::endl<<entries<<std::endl;
-    cout<<std::endl<<entries_s<<std::endl;
+    //cout<<std::endl<<entries<<std::endl;
+    //cout<<std::endl<<entries_s<<std::endl;
 
     boost::property_tree::ptree root;
     boost::property_tree::ptree files;
     root.put("type","client_needs_for_sync");
 
-    cout<<std::endl<<"Confronto se quelli presenti nel server sono presenti nel client:"<<std::endl;
-    for( const auto& n : entries_s) {
-        //cout<<std::endl<<n.second["path"];
-        //cout<<std::endl<<n.second["hash"];
-        std::unordered_map<std::string,json>::const_iterator it = entries.find (n.first);
-
-        if ( it == entries_s.end() )
-            std::cout << n.first << " not found, devo mandare"<<std::endl;
-        else
-            std::cout << it->first << " trovato"<<std::endl;
-    }
 
     cout<<std::endl<<"Confronto se quelli presenti nel server sono presenti nel client, con lo stesso hash:"<<std::endl;
-
     for( const auto& n : entries_s) {
 
         std::unordered_map<std::string,json>::const_iterator it = entries.find (n.first);
         if ( it == entries_s.end() ) {
-            std::cout << n.first << std::endl<< n.second["type"]<<" non trovato nel client! DEVO MANDARLO PERCHE' NON C'È"<<std::endl;
+            std::cout << n.first<<" non trovato nel client! DEVO MANDARLO PERCHE' NON C'È"<<std::endl;
             boost::property_tree::ptree file;
             file.put("", n.first);
             files.push_back(std::make_pair(n.second["type"], file));
         }
         else {
-            std::cout << it->first << " trovato, "<<std::endl;
+            std::cout << it->first << " trovato, ";
             if(it->second["hash"] == n.second["hash"])
-                std::cout<<"Hanno pure lo stesso hash!!!"<<std::endl;
+                std::cout<<"hanno pure lo stesso hash!!!"<<std::endl;
             else {
-                std::cout<<"NON HANNO lo stesso hash!!!"<<std::endl;
-                if(difftime(it->second["timestamp_last_mod"],n.second["timestamp_last_mod"]) > 0 )
-                    //TODO
-                    std::cout<<"Nel server ho la versione piu recente!!!"<<std::endl;
-                else {
-                    std::cout << "Nel client ho la versione piu recente!!!" << std::endl;
+                std::cout<<"NON HANNO lo stesso hash!!! DEVO MANDARLO"<<std::endl;
+
                     boost::property_tree::ptree file;
                     file.put("", n.first);
                     files.push_back(std::make_pair(n.second["type"], file));
-                    //rimuovo questo, ricevo quello nuovo
-                    boost::filesystem::remove_all(path+"/"+n.first);
-
-                }
-            }
-        }
-    }
-
-    cout<<std::endl<<"Confronto se quelli presenti nel client sono presenti nel server, con lo stesso hash, per capire quali eliminare perche non piu presenti:"<<std::endl;
-
-    for( const auto& n : entries) {
-
-        std::unordered_map<std::string,json>::const_iterator it = entries_s.find (n.first);
-        cout<<std::endl;
-        if ( it == entries.end() ) {
-            std::cout << n.first << " non trovato nel server! DEVO ELIMINARLO PERCHE NON PIU NEL server" << std::endl;
-            boost::filesystem::remove_all(path+"/"+n.first);
-        }
-        else {
-            std::cout << it->first << " trovato, "<<std::endl;
-
-            if(it->second["hash"] == n.second["hash"])
-                std::cout<<"Hanno pure lo stesso hash!!!"<<std::endl;
-            else {
-                std::cout<<"NON HANNO lo stesso hash!!!"<<std::endl;
-                if(difftime(n.second["timestamp_last_mod"],it->second["timestamp_last_mod"]) > 0 )
-                    std::cout<<"Nel client ho la versione piu recente!!!"<<std::endl;
-                else
-                    std::cout<<"Nel server ho la versione piu recente!!!"<<std::endl;
 
 
             }
         }
     }
+
+
     root.add_child("fileNames", files);
     return root;
 

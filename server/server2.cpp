@@ -37,22 +37,24 @@ void sendData(tcp::socket& socket, const string& message);
 string getData(tcp::socket& socket);
 std::string iscrizione(tcp::socket& server_socket);
 std::string login(tcp::socket& server_socket);
+void logout(tcp::socket&& socket);
 void sync_client_to_server(tcp::socket& server_socket,std::string dir);
 void sync_server_to_client(tcp::socket& server_socket,std::string dir);
 void sendFileForSyncro(tcp::socket& server_socket, std::string user_path);
 void receiveFileForSyncro(tcp::socket& server_socket, std::string user_path);
 
 
-
+void logout(tcp::socket&& socket) {
+    socket.close();
+}
 //SQLCALLBACK - funzione che mi restituisce i valori della SELECT
 static int callback(void* data, int argc, char** argv, char** azColName)
 {
-    cout<<"OMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM";
     int i;
     fprintf(stderr, "%s", (const char*)data);
 
     for (i = 0; i < argc; i++) {
-        printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
+        //printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
     }
     id=argv[0];
 
@@ -217,24 +219,25 @@ string getData(tcp::socket& socket)
     boost::asio::streambuf buf;
     boost::asio::read_until(socket, buf, "\n");
     string data = buffer_cast<const char*>(buf.data());
-    cout<<"Received<<"<<std::endl<<data;
+    cout<<"Received ->"<<data<<std::endl;
     return data;
 }
 
 int getData2(tcp::socket& socket,std::string user_path) {
-    std::array<char, 512> resp;
+    std::array<char, SIZE_BLOCK> resp;
     memset(&resp,0,resp.size());
-    boost::asio::read(socket, buffer(resp,512));
+    boost::asio::read(socket, buffer(resp,SIZE_BLOCK));
     std::string s(resp.data());
     std::stringstream ss(s);
     pt::ptree root;
-    std::cout <<"JSON from client: "<<std::endl<<s<< std::endl;
+    std::cout << "From client to Server - JSON: " << std::endl << ss.str() << std::endl;
     boost::property_tree::json_parser::read_json(ss, root);
     std::string type = root.get<std::string>("type");
     std::string mod = root.get<std::string>("how_to");
     if(type=="logout") {
         //DEVO SLOGGARE E TERMINARE LA CONNESSIONE
-        cout<<"Devo sloggare";
+        socket.close();
+        return -2;
     } else {
 
     if (type == "directory") { // nel json ho ricevuto info su una directory
@@ -262,13 +265,13 @@ int getData2(tcp::socket& socket,std::string user_path) {
 
 
 void getDataForServerToClientSync(tcp::socket& socket,std::string user_path) {
-    std::array<char, 512> resp;
+    std::array<char, SIZE_BLOCK> resp;
     memset(&resp,0,resp.size());
-    boost::asio::read(socket, buffer(resp,512));
+    boost::asio::read(socket, buffer(resp,SIZE_BLOCK));
     std::string s(resp.data());
     std::stringstream ss(s);
     boost::property_tree::ptree root;
-    std::cout <<"JSON from client: "<<std::endl<<s<< std::endl;
+    std::cout << "From client to Server - JSON: " << std::endl << ss.str() << std::endl;
     boost::property_tree::json_parser::read_json(ss, root);
 
     std::string type = root.get<std::string>("type");
@@ -309,6 +312,7 @@ void getDataForServerToClientSync(tcp::socket& socket,std::string user_path) {
 
 void session(tcp::socket server_socket)
 {
+    std::thread t_sync;
     std::string dir="-1"; //inizializzo a -1 per il while
     std::string scelta;
     std::string resp;
@@ -350,13 +354,16 @@ void session(tcp::socket server_socket)
             else { //error
                  }
 
-            if (scelta=="1") sync_client_to_server(server_socket,dir); //classic
-            if (scelta=="2") sync_server_to_client(server_socket,dir);
+                if (scelta=="1") sync_client_to_server(server_socket,dir); //classic
+                if (scelta=="2") sync_server_to_client(server_socket,dir);
 
             //fileWatcher
-            while(1)  //attesa filewatcher
-                getData2(server_socket,dir);
-
+            while(1) { //attesa filewatcher
+                if (getData2(server_socket, dir) == -2) //exit
+                {
+                    return;
+                }
+            }
 
     }
     catch (std::exception &e) {
@@ -463,8 +470,6 @@ void server(boost::asio::io_service& io_service)
 
 int main(int argc, char* argv[])
 {
-
-
 
     io_service io_service;
 

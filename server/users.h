@@ -12,8 +12,14 @@ class users {
 std::string username;
 std::string password;
 std::string user_path;
-
 public:
+    users(){};
+    users(std::string username,std::string password,std::string user_path):
+            user_path(user_path),
+            username(username),
+            password(password){};
+
+
     void setUsername(std::string u) {
         this->username=u;
     }

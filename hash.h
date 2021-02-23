@@ -88,7 +88,7 @@ int hashingFile(boost::filesystem:: path p) {
     sha256_hash_string(hash, outputBuffer);
     fclose(file);
     free(buffer);
-    std::cout<<"  Digest of "<<p<<" -> "<<outputBuffer<<"\n";
+    //std::cout<<"  Digest of "<<p<<" -> "<<outputBuffer<<"\n";
     return 0;
 }
 
@@ -113,7 +113,7 @@ std::string get_hash_file(boost::filesystem:: path p) {
         sha256_hash_string(hash, outputBuffer);
         fclose(file);
         free(buffer);
-        std::cout<<"  Digest of "<<p<<" -> "<<outputBuffer<<"\n";
+        //std::cout<<"  Digest of "<<p<<" -> "<<outputBuffer<<"\n";
         std::stringstream ss;
         for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
             ss << std::hex << std::setw(2) << std::setfill('0')

@@ -9,8 +9,6 @@
 #include "filewatcher/FileWatcher.h"
 #include "FileManageClient.cpp"
 
-
-
 using namespace std;
 using namespace boost::asio;
 using namespace boost::asio::ip;
@@ -24,19 +22,16 @@ void sync_client_to_server(tcp::socket& client_socket,std::string user_path);
 void sync_server_to_client(tcp::socket& client_socket,std::string user_path);
 void sendFileForSyncro(tcp::socket& client_socket, std::string user_path);
 void receiveFileForSyncro(tcp::socket& client_socket, std::string user_path);
-void logout(tcp::socket& socket);
+void logout(tcp::socket&& socket);
 
 
-void sendData(tcp::socket& socket, const string& message)
+void sendData_string(tcp::socket& socket, const string& message)
 {
     write(socket,
           buffer(message + "\n"));
 }
 
-
-
-
-string getData(tcp::socket& socket)
+string getData_string(tcp::socket& socket)
 {
     boost::asio::streambuf buf;
     boost::asio::read_until(socket, buf, "\n");
@@ -44,17 +39,15 @@ string getData(tcp::socket& socket)
     return data;
 }
 
-
-
-void getData2(tcp::socket& socket,std::string user_path) {
-    std::array<char, 512> resp;
+void getData(tcp::socket& socket,std::string user_path) {
+    std::array<char, SIZE_BLOCK> resp;
     memset(&resp,0,resp.size());
-    boost::asio::read(socket, buffer(resp,512));
+    boost::asio::read(socket, buffer(resp,SIZE_BLOCK));
 
     std::string s(resp.data());
     std::stringstream ss(s);
     boost::property_tree::ptree root;
-    std::cout <<"JSON from server: "<<std::endl<<s<< std::endl;
+    std::cout <<"From server to Client - JSON: "<<std::endl<<s<< std::endl;
     boost::property_tree::json_parser::read_json(ss, root);
 
     std::string type = root.get<std::string>("type");
@@ -68,96 +61,28 @@ void getData2(tcp::socket& socket,std::string user_path) {
         size_t size = (root.get<size_t>("size"));
         readFile(socket,user_path, path, size);
     }
-    /*else if(type=="server_needs_for_sync") {
-        //devo mandare una serie di file al server
-        std::vector<std::pair<std::string, std::string>> fileNames;
-        // Iterator over all fileNames
-        root.get_child("fileNames").size();
-        for (boost::property_tree::ptree::value_type &file : root.get_child("fileNames"))
-        {   //in first troviamo se DIRECTORY o FILE
-            std::string type = file.first;
-            //in second troviamo il nome del file
-            std::string fileName = file.second.data();
-            fileNames.push_back(std::make_pair(type, fileName));
-        }
-        for (std::pair<std::string, std::string> n : fileNames) {
-            if(n.first == "directory")
-                sendDir(socket,n.second,user_path+"/"+n.second,"new_dir");
-        }
-        for (std::pair<std::string, std::string> n : fileNames) {
-            if (n.first == "file")
-                sendFile(socket, n.second, user_path + "/" + n.second, "new_file");
-        }
-    }*/
 }
 
 
 
+void sendLogOut(tcp::socket& socket) {
 
-int main(int argc, char* argv[])
-{
-    if(argc!=2)  {
-        cout<<"Devi specificare il path da monitorare..."<<std::endl;
-        return 1;
-    }
-    std::string user_path = argv[1];
+//costruisco il json DI LOGOUT
 
-    io_service io_service;
-    // socket creation
-    ip::tcp::socket client_socket(io_service);
-
-    client_socket
-            .connect(
-                    tcp::endpoint(
-                            address::from_string("127.0.0.1"),
-                            9999));
-
-    // Getting username from user
-
-    string reply, response,scelta_from_s;
-
-    while (true) {
-        //SCELTA
-        response = getData(client_socket);
-        response.pop_back();
-        cout << "Server: " << response << endl;
-        if(response=="start_config_req")  {
-            sendData(client_socket,"start_config_ok");
-            break;
-        }
-        //mando
-        getline(cin, reply);
-        sendData(client_socket, reply);
-
-    }
-
-    scelta_from_s = getData(client_socket);
-
-    scelta_from_s.pop_back();
-
-        if(scelta_from_s=="1") //classic
-        {
-            sync_client_to_server(client_socket, user_path);
-            cout<<"#### ADESSO IL PROGRAMMA FUNZIONERA IN BACKGROUND, OGNI MODIFICA NELLA DIRECTORY VERRA' INOLTRATA AL SERVER ####\n";
-
-        }
-
-    if(scelta_from_s=="2") //devo fare backup , prendo quello che mi manda e salvo
-    {
-        sync_server_to_client(client_socket,user_path);
-        cout<<"#### ADESSO IL PROGRAMMA FUNZIONERA IN BACKGROUND, OGNI MODIFICA NELLA DIRECTORY VERRA' INOLTRATA AL SERVER ####\n";
-    }
-
-    std::thread t_logout([&client_socket](){
-        logout(client_socket);
-    });
-
-    t_logout.detach();
-    //lancio file watcher in background
-    fileW(client_socket,user_path);
+    boost::property_tree::ptree root;
+    root.put("type", "logout");
+    root.put("path", "logout");
+    root.put("size", "logout");
+    root.put("how_to","logout");
+    std::stringstream ss;
+    boost::property_tree::json_parser::write_json(ss, root);
+    std::cout << "JSON to server : " << std::endl <<  ss.str() << std::endl;
+    std::string s{ss.str()};
+    // invio il json
+    s.length() < SIZE_BLOCK ? s.append(" ",SIZE_BLOCK-s.length()) : NULL;
+    boost::asio::write(socket, buffer(s, SIZE_BLOCK));
 
 
-    return 0;
 }
 
 
@@ -222,12 +147,17 @@ void fileW(tcp::socket& socket,std::string user_path) {
     // Start monitoring a folder for changes and (in case of changes)
     // run a user provided lambda function
     fw.start([] (std::string path_to_watch,int base, FileStatus status,tcp::socket& socket) -> void {
-        // Process only regular files, all other file types are ignored
-        if(!boost::filesystem::is_regular_file(boost::filesystem::path(path_to_watch)) && status != FileStatus::erased) {
+        // Process only regular files and directory, all other file types are ignored
+        if(!(boost::filesystem::is_regular_file(boost::filesystem::path(path_to_watch)) || boost::filesystem::is_directory(boost::filesystem::path(path_to_watch))) && status != FileStatus::erased) {
             return;
         }
         int y;
         switch(status) {
+            case FileStatus::directory_created:
+                std::cout<< "New directory created :"<< path_to_watch<<std::endl;
+                y = path_to_watch.length();
+                sendDir(socket,path_to_watch.substr(base+1,y),path_to_watch,"new_dir");
+                break;
             case FileStatus::created:
                 std::cout << "File created: " << path_to_watch << '\n';
                 y = path_to_watch.length();
@@ -243,6 +173,7 @@ void fileW(tcp::socket& socket,std::string user_path) {
                 y = path_to_watch.length();
                 sendFile(socket,path_to_watch.substr(base+1,y),path_to_watch,"file_to_delete");
                 break;
+
             default:
                 std::cout << "Error! Unknown file status.\n";
         }
@@ -256,7 +187,7 @@ void sync_server_to_client(tcp::socket& client_socket,std::string user_path) {
     sendFile(client_socket,"client-struct.json","utility/client-struct.json","start_config");
 
         // ricevo server-struct
-        getData2(client_socket,user_path);
+        getData(client_socket,user_path);
 
         receiveFileForSyncro(client_socket,user_path);
         cout<<"Sincronizzazione terminata."<<std::endl;
@@ -271,7 +202,7 @@ void sync_client_to_server(tcp::socket& client_socket,std::string user_path) {
     sync_operation(user_path);
 
         //ricevo server-struct
-        getData2(client_socket,user_path);
+        getData(client_socket,user_path);
 
         //invio client-struct
         sendFile( client_socket,"client-struct.json","utility/client-struct.json","start_config");
@@ -285,9 +216,9 @@ void sync_client_to_server(tcp::socket& client_socket,std::string user_path) {
 
     void receiveFileForSyncro(tcp::socket& client_socket, std::string user_path) {
         boost::property_tree::ptree root = confronto_sync_server_to_client(user_path);
-        cout<<"Devo ricevere ->"<<root.get_child("fileNames").size()<< "elementi"<<std::endl;
+        cout<<"Devo ricevere ->"<<root.get_child("fileNames").size()<< " elementi"<<std::endl;
         for(int j=0;j<root.get_child("fileNames").size();j++) {
-            getData2(client_socket,user_path);
+            getData(client_socket,user_path);
         }
 }
 
@@ -318,23 +249,84 @@ void sync_client_to_server(tcp::socket& client_socket,std::string user_path) {
     }
 
 
-void logout(tcp::socket& socket) {
+void logout(tcp::socket&& socket) {
     std::string reply;
     try {
-        std::cout << "User authenticated. Digit EXIT to exit" << std::endl;
+        std::cout << "Utente autenticato. Digita il comando EXIT per uscire."<< std::endl;
         do {
                 std::getline(std::cin, reply);
                 std::cout<<reply<<std::endl;
                 if (reply!= "EXIT") {
-                    std::cout << "Invalid command. Digit \"EXIT\" to exit" << std::endl;
+                    std::cout << "DIGITA EXIT PER USCIRE!" << std::endl;
                     std::cin.clear();
                 }
 
         }while (reply!="EXIT");
         sendLogOut(socket);
-        cout<<"Devo sloggare";
+        socket.close();
+        std::exit(EXIT_SUCCESS);
 
     }catch(std::exception &ex){
         //
     }
+}
+
+
+int main(int argc, char* argv[])
+{
+    std::thread t_sync;
+    if(argc!=2)  {
+        cout<<"Devi specificare il path da monitorare..."<<std::endl;
+        return 1;
+    }
+    std::string user_path = argv[1];
+
+    io_service io_service;
+    // socket creation
+    ip::tcp::socket client_socket(io_service);
+
+    client_socket
+            .connect(
+                    tcp::endpoint(
+                            address::from_string("127.0.0.1"),
+                            9999));
+
+    // Getting username from user
+
+    string reply, response,scelta_from_s;
+
+    while (true) {
+        //SCELTA
+        response = getData_string(client_socket);
+        response.pop_back();
+        cout << "Server: " << response << endl;
+        if(response=="start_config_req")  {
+            sendData_string(client_socket,"start_config_ok");
+            break;
+        }
+        //mando
+        getline(cin, reply);
+        sendData_string(client_socket, reply);
+
+    }
+
+    scelta_from_s = getData_string(client_socket);
+
+    scelta_from_s.pop_back();
+
+
+    if (scelta_from_s=="1") sync_client_to_server(client_socket, user_path);
+    if (scelta_from_s=="2") sync_server_to_client(client_socket,user_path);
+
+
+    std::thread t_logout([&client_socket](){
+        logout(std::move(client_socket));
+    });
+
+    t_logout.detach();
+    //lancio file watcher in background
+    fileW(client_socket,user_path);
+
+
+    return 0;
 }

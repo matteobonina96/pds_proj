@@ -12,7 +12,7 @@
 using namespace std;
 using namespace boost::asio;
 using namespace boost::asio::ip;
-
+#define SIZE_BLOCK 512
 
 void createDirectory(std::string path) {
     boost::filesystem::create_directories(path);
@@ -55,11 +55,11 @@ void sendDir(tcp::socket& socket,std::string filename,std::string path,std::stri
     boost::property_tree::ptree root = createPtreeDirectory(filename,mod);
     std::stringstream ss;
     boost::property_tree::json_parser::write_json(ss, root);
-    std::cout << "JSON to server : " << std::endl << ss.str() << std::endl;
+    std::cout << "From client to Server - JSON: " << std::endl << ss.str() << std::endl;
     std::string s{ss.str()};
     // invio il json della directory
-    s.length() < 512 ? s.append(" ", 512 - s.length()) : NULL;
-    boost::asio::write(socket, buffer(s, 512));
+    s.length() < SIZE_BLOCK ? s.append(" ", SIZE_BLOCK - s.length()) : NULL;
+    boost::asio::write(socket, buffer(s, SIZE_BLOCK));
 
 }
 
@@ -79,44 +79,24 @@ void sendFile(tcp::socket& socket,std::string filename,std::string path,std::str
     boost::property_tree::ptree root = createPtreeFile(filename,fileSize,mod);
     std::stringstream ss;
     boost::property_tree::json_parser::write_json(ss, root);
-    std::cout << "JSON to server : " << std::endl <<  ss.str() << std::endl;
+    std::cout << "From client to Server - JSON: " << std::endl << ss.str() << std::endl;
     std::string s{ss.str()};
     // invio il json del file
-    s.length() < 512 ? s.append(" ",512-s.length()) : NULL;
-    boost::asio::write(socket, buffer(s, 512));
+    s.length() < SIZE_BLOCK ? s.append(" ",SIZE_BLOCK-s.length()) : NULL;
+    boost::asio::write(socket, buffer(s, SIZE_BLOCK));
     if(mod!="file_to_delete") {
         // INVIO DEL CONTENUTO (se invio file_to_Delete mando solo il json con il nome, quindi mi fermo prima
         unsigned int writeCounter = fileSize;
         int readFileCounter = 0;
-        std::array<char,512> bufferFile;
+        std::array<char,SIZE_BLOCK> bufferFile;
         while(writeCounter > 0 && readFileCounter< fileSize){
             memset(&bufferFile,0,bufferFile.size());
-            file.read(bufferFile.data(),writeCounter > 512 ? 512 : writeCounter);
+            file.read(bufferFile.data(),writeCounter > SIZE_BLOCK ? SIZE_BLOCK : writeCounter);
             readFileCounter += file.gcount();
             file.seekg(readFileCounter);
-            writeCounter -= boost::asio::write(socket,buffer(bufferFile,writeCounter > 512 ? 512 : writeCounter));
+            writeCounter -= boost::asio::write(socket,buffer(bufferFile,writeCounter > SIZE_BLOCK ? SIZE_BLOCK : writeCounter));
         }
         file.close(); }
-
-}
-
-void sendLogOut(tcp::socket& socket) {
-
-//costruisco il json DI LOGOUT
-
-    boost::property_tree::ptree root;
-    root.put("type", "logout");
-    root.put("path", "logout");
-    root.put("size", "logout");
-    root.put("how_to","logout");
-    std::stringstream ss;
-    boost::property_tree::json_parser::write_json(ss, root);
-    std::cout << "JSON to server : " << std::endl <<  ss.str() << std::endl;
-    std::string s{ss.str()};
-    // invio il json
-    s.length() < 512 ? s.append(" ",512-s.length()) : NULL;
-    boost::asio::write(socket, buffer(s, 512));
-
 
 }
 
@@ -132,11 +112,10 @@ void readFile(tcp::socket& socket,std::string user_path, std::string path, int s
     }
     try{
         while(readCounter > 0){
-            cout<<"ReadCounter ->"<<std::endl<<readCounter;
-            std::array<char, 512> response;
+            std::array<char, SIZE_BLOCK> response;
             memset(&response,0,response.size());
             c = boost::asio::read(socket,
-                                  boost::asio::buffer(response, readCounter > 512 ? 512 : readCounter ));
+                                  boost::asio::buffer(response, readCounter > SIZE_BLOCK ? SIZE_BLOCK : readCounter ));
             readCounter -= c;
             std::string text{response.begin(), response.begin() + c};
             createFile(user_path,path, text );
@@ -150,19 +129,6 @@ void readFile(tcp::socket& socket,std::string user_path, std::string path, int s
             throw boost::system::system_error(boost::asio::error::eof);       //utilizzare questa nei "figli"
         }
     }
-}
-
-
-int sendFileNamesClientNeeds(tcp::socket& socket,boost::property_tree::ptree root) {
-    std::stringstream ss;
-    boost::property_tree::json_parser::write_json(ss, root);
-    std::cout <<std::endl<< "_My New JSON of What Client Needs : " << std::endl <<  ss.str() << std::endl;
-    std::cout << "JSON to server : " << std::endl <<  ss.str() << std::endl;
-    std::string s{ss.str()};
-    // invio il json del file
-    s.length() < 512 ? s.append(" ",512-s.length()) : NULL;
-    boost::asio::write(socket, buffer(s, 512));
-
 }
 
 

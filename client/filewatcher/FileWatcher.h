@@ -11,7 +11,7 @@
 using namespace boost::asio;
 using namespace boost::asio::ip;
 // Define available file changes test
-enum class FileStatus {created, modified, erased};
+enum class FileStatus {directory_created,created, modified, erased};
 
 class FileWatcher {
 public:
@@ -48,11 +48,17 @@ public:
             // Check if a file was created or modified
             for(auto &file : boost::filesystem::recursive_directory_iterator(path_to_watch)) {
                 auto current_file_last_write_time = boost::filesystem::last_write_time(file);
-
-                // File creation
                 if(!contains(file.path().string())) {
-                    paths_[file.path().string()] = current_file_last_write_time;
-                    action(file.path().string(),base, FileStatus::created,socket);
+                    cout<<"SOMETHING CHANGES!\n";
+                    if(boost::filesystem::is_directory(file.path().string())) {
+                        paths_[file.path().string()] = current_file_last_write_time;
+                        action(file.path().string(),base, FileStatus::directory_created,socket);
+                    }
+                    else {
+                        paths_[file.path().string()] = current_file_last_write_time;
+                        action(file.path().string(),base, FileStatus::created,socket);
+                    }
+
                     // File modification
                 } else {
                     if(paths_[file.path().string()] != current_file_last_write_time) {

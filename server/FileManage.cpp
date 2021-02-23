@@ -13,6 +13,7 @@
 using namespace std;
 using namespace boost::asio;
 using namespace boost::asio::ip;
+#define SIZE_BLOCK 512
 
 void createDirectory(std::string path,std::string user_path) {
     boost::filesystem::create_directories(user_path+"/"+path);
@@ -68,21 +69,21 @@ void sendFile(tcp::socket& socket,std::string filename,std::string path,std::str
     boost::property_tree::ptree root = createPtreeFile(filename,fileSize,mod);
     std::stringstream ss;
     boost::property_tree::json_parser::write_json(ss, root);
-    std::cout << "JSON to client : " << std::endl <<  ss.str() << std::endl;
+    std::cout << "From server to Client - JSON: " << std::endl << ss.str() << std::endl;
     std::string s{ss.str()};
     // invio il json del file
-    s.length() < 512 ? s.append(" ",512-s.length()) : NULL;
-    boost::asio::write(socket, buffer(s, 512));
+    s.length() < SIZE_BLOCK ? s.append(" ",SIZE_BLOCK-s.length()) : NULL;
+    boost::asio::write(socket, buffer(s, SIZE_BLOCK));
     // INVIO DEL CONTENUTO
     unsigned int writeCounter = fileSize;
     int readFileCounter = 0;
-    std::array<char,512> bufferFile;
+    std::array<char,SIZE_BLOCK> bufferFile;
     while(writeCounter > 0 && readFileCounter< fileSize){
         memset(&bufferFile,0,bufferFile.size());
-        file.read(bufferFile.data(),writeCounter > 512 ? 512 : writeCounter);
+        file.read(bufferFile.data(),writeCounter > SIZE_BLOCK ? SIZE_BLOCK : writeCounter);
         readFileCounter += file.gcount();
         file.seekg(readFileCounter);
-        writeCounter -= boost::asio::write(socket,buffer(bufferFile,writeCounter > 512 ? 512 : writeCounter));
+        writeCounter -= boost::asio::write(socket,buffer(bufferFile,writeCounter > SIZE_BLOCK ? SIZE_BLOCK : writeCounter));
     }
     file.close();
 
@@ -92,18 +93,18 @@ void sendDir(tcp::socket& socket,std::string filename,std::string path,std::stri
     boost::property_tree::ptree root = createPtreeDirectory(filename,mod);
     std::stringstream ss;
     boost::property_tree::json_parser::write_json(ss, root);
-    std::cout << "JSON to client : " << std::endl << ss.str() << std::endl;
+    std::cout << "From server to Client - JSON: " << std::endl << ss.str() << std::endl;
     std::string s{ss.str()};
     // invio il json della directory
-    s.length() < 512 ? s.append(" ", 512 - s.length()) : NULL;
-    boost::asio::write(socket, buffer(s, 512));
+    s.length() < SIZE_BLOCK ? s.append(" ", SIZE_BLOCK - s.length()) : NULL;
+    boost::asio::write(socket, buffer(s, SIZE_BLOCK));
 
 }
 
 void readFile(tcp::socket& socket,std::string user_path, std::string path, int size){
     int readCounter=size;
     int c = 0;
-    std::cout<<"IM IN READ FILE"<<std::endl;
+    std::cout<<"I'm in readFile"<<std::endl;
     if(readCounter == 0){
         std::cout << "file con dimensione 0"<< std::endl;
         boost::filesystem::ofstream ofs;
@@ -111,10 +112,10 @@ void readFile(tcp::socket& socket,std::string user_path, std::string path, int s
     }
     try{
         while(readCounter > 0){
-            std::array<char, 512> response;
+            std::array<char, SIZE_BLOCK> response;
             memset(&response,0,response.size());
             c = boost::asio::read(socket,
-                                  boost::asio::buffer(response, readCounter > 512 ? 512 : readCounter ));
+                                  boost::asio::buffer(response, readCounter > SIZE_BLOCK ? SIZE_BLOCK : readCounter ));
             readCounter -= c;
             std::string text{response.begin(), response.begin() + c};
             createFile(user_path,path, text );
@@ -159,8 +160,8 @@ void sendFileNamesServerNeeds(tcp::socket& socket,boost::property_tree::ptree ro
     */
 
 
-        //s.length() < 512 ? s.append(" ",512-s.length()) : NULL;
-        //boost::asio::write(socket, buffer(s, 512));
+        //s.length() < SIZE_BLOCK ? s.append(" ",SIZE_BLOCK-s.length()) : NULL;
+        //boost::asio::write(socket, buffer(s, SIZE_BLOCK));
         std::string mess="funzia";
     boost::asio::write(socket,buffer(mess + "\n"));
     }
