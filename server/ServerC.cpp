@@ -90,6 +90,10 @@ std::string ServerC::login() {
 
     //apro il db
     std::lock_guard<std::mutex> lg(mutex_db);
+
+    user_path_from_select = "\0";
+    up_select = "\0"; //QUANDO FACCIO LOGOUT DEVO PULIRE QUESTA STRINGA PER IL SUCCESSIVO LOGIN
+
     res = sqlite3_open("test.db", &DB);
     string data("Ricerca nel database...\n");
     string sql("select * from users where ID = '"+user.getUsername()+"' and PASS = '"+user.getPassword()+"';  ");
@@ -106,6 +110,7 @@ std::string ServerC::login() {
         cerr << "Error select" << endl;
         return "-1"; }
     else {
+
         up_select=user_path_from_select;
         cout<<"user_path_from_select: " <<user_path_from_select<<std::endl;
         if(up_select == "\0" ) //vuol dire che non ha trovato corrispondenze in tabella, ergo l'utente non esiste
@@ -231,7 +236,8 @@ int ServerC::getData2(std::string user_path) {
 
                 readFile(user_path,path, size); }
         }
-    } }
+    }
+return 1;}
 
 
 
