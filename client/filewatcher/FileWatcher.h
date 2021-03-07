@@ -46,8 +46,6 @@ public:
 
             // Check if a file was created or modified
             for(auto &file : boost::filesystem::recursive_directory_iterator(path_to_watch)) {
-                std::cout<<"File: "<<file.path().string()<<std::endl;
-                std::cout<<" !contains? : "<<!contains(file.path().string())<<std::endl;
                 auto current_file_last_write_time = boost::filesystem::last_write_time(file);
                 if(!contains(file.path().string())) {
                     std::cout<<"SOMETHING CHANGES!\n";
