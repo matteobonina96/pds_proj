@@ -1,0 +1,11 @@
+Compilare il server:
+
+g++ main.cpp ServerC.cpp ServerStructureC.cpp Server.cpp ../HashC.cpp -lpthread -o server -lsqlite3 -lboost_system -lboost_filesystem -lcrypto 
+
+lanciare ./server
+
+Compilare il client:
+
+g++ main.cpp ClientC.cpp StructureC.cpp ../HashC.cpp -lpthread -o client -lsqlite3 -lboost_system -lboost_filesystem -lcrypto 
+
+lanciare ./client <Path da monitorare>

@@ -18,18 +18,17 @@ public:
     std::string path_to_watch;
     // Time interval at which we check the base folder for changes
     std::chrono::duration<int, std::milli> delay;
-    tcp::socket& socket;
     int base;
 
     // Keep a record of files from the base directory and their last modification time
-    FileWatcher(std::string path_to_watch,int base, std::chrono::duration<int, std::milli> delay,tcp::socket& socket) : path_to_watch{path_to_watch}, delay{delay}, socket{socket}, base{base}{
+    FileWatcher(std::string path_to_watch,int base, std::chrono::duration<int, std::milli> delay) : path_to_watch{path_to_watch}, delay{delay}, base{base}{
         for(auto &file : boost::filesystem::recursive_directory_iterator(path_to_watch)) {
             paths_[file.path().string()] = boost::filesystem::last_write_time(file);
         }
     }
 
     // Monitor "path_to_watch" for changes and in case of a change execute the user supplied "action" function
-    void start(const std::function<void (std::string,int, FileStatus,tcp::socket&)> &action) {
+    void start(const std::function<void (std::string,int, FileStatus)> &action) {
         while(running_) {
             // Wait for "delay" milliseconds
             std::this_thread::sleep_for(delay);
@@ -37,7 +36,7 @@ public:
             auto it = paths_.begin();
             while (it != paths_.end()) {
                 if (!boost::filesystem::exists(it->first)) {
-                    action(it->first,base, FileStatus::erased,socket);
+                    action(it->first,base, FileStatus::erased);
                     it = paths_.erase(it);
                 }
                 else {
@@ -47,23 +46,25 @@ public:
 
             // Check if a file was created or modified
             for(auto &file : boost::filesystem::recursive_directory_iterator(path_to_watch)) {
+                std::cout<<"File: "<<file.path().string()<<std::endl;
+                std::cout<<" !contains? : "<<!contains(file.path().string())<<std::endl;
                 auto current_file_last_write_time = boost::filesystem::last_write_time(file);
                 if(!contains(file.path().string())) {
-                    cout<<"SOMETHING CHANGES!\n";
+                    std::cout<<"SOMETHING CHANGES!\n";
                     if(boost::filesystem::is_directory(file.path().string())) {
                         paths_[file.path().string()] = current_file_last_write_time;
-                        action(file.path().string(),base, FileStatus::directory_created,socket);
+                        action(file.path().string(),base, FileStatus::directory_created);
                     }
                     else {
                         paths_[file.path().string()] = current_file_last_write_time;
-                        action(file.path().string(),base, FileStatus::created,socket);
+                        action(file.path().string(),base, FileStatus::created);
                     }
 
                     // File modification
                 } else {
-                    if(paths_[file.path().string()] != current_file_last_write_time) {
+                    if(paths_[file.path().string()] != current_file_last_write_time && !(boost::filesystem::is_directory(file.path().string()))) {
                         paths_[file.path().string()] = current_file_last_write_time;
-                        action(file.path().string(),base, FileStatus::modified,socket);
+                        action(file.path().string(),base, FileStatus::modified);
                     }
                 }
             }
