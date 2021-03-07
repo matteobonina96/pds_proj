@@ -13,7 +13,8 @@ public:
             : io_service_(io_service),
               acceptor_(io_service, tcp::endpoint(tcp::v4(), port))
     {
-
+        cout<<"Benvenuto in REMOTE-BACKUP - Progetto realizzato da Matteo,Raffaella e Desire\n";
+        cout<<"In attesa di connessione\n";
         ServerC* new_session = new ServerC(io_service_);
         acceptor_.async_accept(new_session->socket(),
                                boost::bind(&server::handle_accept, this, new_session,

@@ -21,7 +21,7 @@ static int callback(void* data, int argc, char** argv, char** azColName)
     }
 
     user_path_from_select=argv[2];
-    cout<<"Sto in callback: "<<user_path_from_select<<std::endl;
+    cout<<"User_path: "<<user_path_from_select<<std::endl;
 
     return 0;
 }
@@ -113,10 +113,9 @@ std::string ServerC::login() {
     else {
 
         up_select=user_path_from_select;
-        cout<<"user_path_from_select: " <<user_path_from_select<<std::endl;
         if(up_select == "\0" ) //vuol dire che non ha trovato corrispondenze in tabella, ergo l'utente non esiste
         {
-            cout<<"#####################ERROR###################"<<std::endl<<"Utente non trovato";
+            cout<<"#####################ERROR###################"<<std::endl<<"Utente non trovato"<<std::endl;
             return "-1";
         }
         cout << "Dati trovati. " << endl << endl;
@@ -194,7 +193,7 @@ string ServerC::getData()
     boost::asio::streambuf buf;
     boost::asio::read_until(server_socket, buf, "\n");
     string data = buffer_cast<const char*>(buf.data());
-    cout<<"Received ->"<<data<<std::endl;
+    cout<<"Data from client: ->"<<data<<std::endl;
     return data;
 }
 
@@ -296,7 +295,7 @@ void ServerC::start(){
     std::string dir="-1"; //inizializzo a -1 per il while
     std::string scelta;
     std::string resp;
-    cout << "CLIENT thread n° " << this_thread::get_id() << " opened." << endl;
+    cout << "Connessione effettuata, gestita dal thread n° " << this_thread::get_id() << ". In attesa del client" << endl;
     try {
         //first chat -> menu1
         while(1) {
@@ -329,14 +328,13 @@ void ServerC::start(){
         resp = getData();
         // Popping last character "\n"
         resp.pop_back();
-        if(resp=="start_config_ok")
-            sendData(scelta);
-        else { //error
+        if(resp!="start_config_ok") {
+            //error
         }
-
         if (scelta=="1") sync_client_to_server(dir); //classic
         if (scelta=="2") sync_server_to_client(dir);
 
+        cout<<"Sincronizzazione effettuata. In attesa di nuovi files."<<std::endl;
         //fileWatcher
         while(1) { //attesa filewatcher
             if (getData2(dir) == -2) //exit

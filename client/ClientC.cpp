@@ -4,13 +4,7 @@
 
 #include "ClientC.h"
 
-void ClientC::connect_handler(const boost::system::error_code &ec) {
-    cout<<"MA CRISTODIO\n";
-    if (!ec) {
-        ioservice.run();
-        cout<<"SO DENTRO LOLLETE";
-    }
-}
+
 void ClientC::sendData_string(const std::string& message)
 {
     write(client_socket,
@@ -232,12 +226,12 @@ void ClientC::sendFileForSyncro() {
 void ClientC::logout(tcp::socket&& socket) {
     std::string reply;
     try {
-        std::cout << "Utente autenticato. Digita il comando EXIT per uscire."<< std::endl;
+        std::cout << "Digita il comando EXIT per uscire."<< std::endl;
         do {
             std::getline(std::cin, reply);
             std::cout<<reply<<std::endl;
             if (reply!= "EXIT") {
-                std::cout << "DIGITA EXIT PER USCIRE!" << std::endl;
+                std::cout << "Devi digitare EXIT!" << std::endl;
                 std::cin.clear();
             }
 
@@ -254,9 +248,7 @@ void ClientC::logout(tcp::socket&& socket) {
 
 void ClientC::handle_connection() {
 
-    std::string reply, response,scelta_from_s;
-    cout<<"CE SO DENTRO";
-
+    std::string response,scelta_menu;
     while (true) {
         //SCELTA
         response = getData_string();
@@ -267,18 +259,15 @@ void ClientC::handle_connection() {
             break;
         }
         //mando
-        getline(std::cin, reply);
-        sendData_string(reply);
+        getline(std::cin, scelta_menu);
+        sendData_string(scelta_menu);
 
     }
 
-    scelta_from_s = getData_string();
 
-    scelta_from_s.pop_back();
+    if (scelta_menu=="1") sync_client_to_server();
+    if (scelta_menu=="2") sync_server_to_client();
 
-
-    if (scelta_from_s=="1") sync_client_to_server();
-    if (scelta_from_s=="2") sync_server_to_client();
 
 
     std::thread t_logout([this](){
@@ -286,6 +275,7 @@ void ClientC::handle_connection() {
     });
 
     t_logout.detach();
+    cout<<"********** FileWatcher in background **********"<<std::endl;
     //lancio file watcher in background
     fileW();
 

@@ -123,15 +123,14 @@ boost::property_tree::ptree ServerStructureC::confronto_sync_server_to_client(st
     std::unordered_map<std::string, json> entries_s;
     read_structure_client(entries);
     read_structure_server(entries_s);
-    //cout<<std::endl<<entries<<std::endl;
-    //cout<<std::endl<<entries_s<<std::endl;
+
 
     boost::property_tree::ptree root;
     boost::property_tree::ptree files;
     root.put("type","client_needs_for_sync");
 
 
-    cout<<std::endl<<"Confronto se quelli presenti nel server sono presenti nel client, con lo stesso hash:"<<std::endl;
+    //cout<<std::endl<<"Confronto se quelli presenti nel server sono presenti nel client, con lo stesso hash:"<<std::endl;
     for( const auto& n : entries_s) {
 
         std::unordered_map<std::string,json>::const_iterator it = entries.find (n.first);
