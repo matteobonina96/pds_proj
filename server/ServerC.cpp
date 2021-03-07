@@ -91,6 +91,7 @@ std::string ServerC::login() {
     //apro il db
     std::lock_guard<std::mutex> lg(mutex_db);
 
+    //
     user_path_from_select = "\0";
     up_select = "\0"; //QUANDO FACCIO LOGOUT DEVO PULIRE QUESTA STRINGA PER IL SUCCESSIVO LOGIN
 
